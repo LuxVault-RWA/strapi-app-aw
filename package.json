@@ -11,6 +11,7 @@
     "strapi": "strapi"
   },
   "dependencies": {
+    "@longviewlabs/strapi-provider-upload-arweave": "^5.0.2",
     "@strapi/plugin-cloud": "5.11.3",
     "@strapi/plugin-users-permissions": "5.11.3",
     "@strapi/provider-upload-cloudinary": "5.11.3",

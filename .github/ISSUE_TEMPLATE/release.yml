@@ -1,0 +1,117 @@
+name: Release issue
+description: Track a production release, deployment, or privileged change from review through rollback.
+title: "[Release]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this issue for any release that may touch contracts, data, indexing, environments, or Safe-controlled actions.
+
+        Fill every section with the current plan, the linked evidence, and the final approval state before closing.
+  - type: textarea
+    id: contract-deploys
+    attributes:
+      label: Contract deploys
+      description: Contracts, artifacts, addresses, and any published deployment manifests.
+      placeholder: |
+        - Contract:
+        - Commit:
+        - Artifact hash:
+        - Deployment manifest:
+    validations:
+      required: true
+  - type: textarea
+    id: db-migrations
+    attributes:
+      label: DB migrations
+      description: Prisma or SQL migrations, validation notes, and any backfill or freeze window details.
+      placeholder: |
+        - Migration:
+        - Validation:
+        - Freeze window:
+        - Rollback:
+    validations:
+      required: true
+  - type: textarea
+    id: indexer-changes
+    attributes:
+      label: Indexer changes
+      description: Indexing, ingestion, backfill, or projection changes that affect release readiness.
+      placeholder: |
+        - Source:
+        - Backfill range:
+        - Lag expectation:
+        - Verification:
+    validations:
+      required: true
+  - type: textarea
+    id: env-changes
+    attributes:
+      label: Env changes
+      description: Environment variable, secret, or configuration changes required for the release.
+      placeholder: |
+        - Env:
+        - Secret or config:
+        - Owner:
+        - Rotation or rollback:
+    validations:
+      required: true
+  - type: textarea
+    id: tenderly-simulation
+    attributes:
+      label: Tenderly simulation
+      description: Simulation link, result summary, and any failure analysis.
+      placeholder: |
+        - Simulation URL:
+        - Outcome:
+        - Notes:
+    validations:
+      required: true
+  - type: textarea
+    id: safe-proposal
+    attributes:
+      label: Safe proposal
+      description: Safe transaction link, calldata summary, signer notes, and nonce behavior.
+      placeholder: |
+        - Safe:
+        - Proposal URL:
+        - Signers:
+        - Nonce behavior:
+    validations:
+      required: true
+  - type: textarea
+    id: observability
+    attributes:
+      label: Observability
+      description: Dashboards, alerts, logs, metrics, and rollout checkpoints to watch after release.
+      placeholder: |
+        - Dashboard:
+        - Alerts:
+        - Logs:
+        - KPIs:
+    validations:
+      required: true
+  - type: textarea
+    id: rollback
+    attributes:
+      label: Rollback
+      description: Exact rollback plan, revert path, and who can execute it.
+      placeholder: |
+        - Trigger:
+        - Steps:
+        - Owner:
+        - Validation:
+    validations:
+      required: true
+  - type: textarea
+    id: owner-sign-off
+    attributes:
+      label: Owner sign-off
+      description: Final owner approval with date, role, and any caveats.
+      placeholder: |
+        Approved by:
+        Date:
+        Scope:
+        Caveats:
+    validations:
+      required: true

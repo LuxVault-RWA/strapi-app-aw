@@ -1,0 +1,218 @@
+name: Release Gates
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-scan:
+    name: dependency-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.9.0
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Audit workspace dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          for dir in api protocol sdk mcp docs; do
+            if [ -f "$dir/pnpm-lock.yaml" ]; then
+              echo "Auditing $dir"
+              (cd "$dir" && pnpm audit --prod --audit-level high)
+            fi
+          done
+
+  secret-scan:
+    name: secret-scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          args: detect --no-banner --redact --source .
+
+  lint-typecheck:
+    name: lint-typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.9.0
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: API lint and typecheck
+        shell: bash
+        working-directory: api
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/luxvault?schema=public
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/luxvault?schema=public
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm prisma:generate
+          pnpm lint
+          pnpm typecheck
+      - name: SDK typecheck
+        shell: bash
+        working-directory: sdk
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm typecheck
+      - name: MCP typecheck
+        shell: bash
+        working-directory: mcp
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm typecheck
+      - name: Protocol typecheck
+        shell: bash
+        working-directory: protocol
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm -r --if-present typecheck
+
+  contract-tests:
+    name: contract-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.9.0
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: API contract tests
+        shell: bash
+        working-directory: api
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/luxvault?schema=public
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/luxvault?schema=public
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm prisma:generate
+          pnpm test:contracts
+      - name: Protocol contract tests
+        shell: bash
+        working-directory: protocol
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm --filter @luxvault-rwa/contracts-product test
+          pnpm --filter @luxvault-rwa/contracts-infra test
+
+  migration-validation:
+    name: migration-validation
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: luxvault_release_gates
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d luxvault_release_gates"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.9.0
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate and deploy migrations
+        shell: bash
+        working-directory: api
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/luxvault_release_gates?schema=public
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/luxvault_release_gates?schema=public
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm prisma:generate
+          pnpm prisma:validate
+          pnpm prisma:migrate:test
+
+  ci:
+    name: ci
+    runs-on: ubuntu-latest
+    needs:
+      - dependency-scan
+      - secret-scan
+      - lint-typecheck
+      - contract-tests
+      - migration-validation
+    if: always()
+    steps:
+      - name: Summarize gate results
+        shell: bash
+        env:
+          DEPENDENCY_SCAN_RESULT: ${{ needs.dependency-scan.result }}
+          SECRET_SCAN_RESULT: ${{ needs.secret-scan.result }}
+          LINT_TYPECHECK_RESULT: ${{ needs.lint-typecheck.result }}
+          CONTRACT_TESTS_RESULT: ${{ needs.contract-tests.result }}
+          MIGRATION_VALIDATION_RESULT: ${{ needs.migration-validation.result }}
+        run: |
+          set -euo pipefail
+          printf 'dependency-scan=%s\n' "$DEPENDENCY_SCAN_RESULT"
+          printf 'secret-scan=%s\n' "$SECRET_SCAN_RESULT"
+          printf 'lint-typecheck=%s\n' "$LINT_TYPECHECK_RESULT"
+          printf 'contract-tests=%s\n' "$CONTRACT_TESTS_RESULT"
+          printf 'migration-validation=%s\n' "$MIGRATION_VALIDATION_RESULT"
+
+          for result in \
+            "$DEPENDENCY_SCAN_RESULT" \
+            "$SECRET_SCAN_RESULT" \
+            "$LINT_TYPECHECK_RESULT" \
+            "$CONTRACT_TESTS_RESULT" \
+            "$MIGRATION_VALIDATION_RESULT"; do
+            if [ "$result" != "success" ]; then
+              exit 1
+            fi
+          done

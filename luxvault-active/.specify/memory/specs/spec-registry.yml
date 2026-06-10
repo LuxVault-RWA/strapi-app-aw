@@ -1,0 +1,49 @@
+version: 1
+
+constitution:
+  path: memory/constitution.md
+  status: active
+  approval_required: true
+
+specs:
+  - id: "001"
+    slug: raffle-core
+    title: Raffle Core
+    status: draft
+    owner: protocol
+    priority: 1
+    canonical_files:
+      - specs/001-raffle-core/spec.md
+      - specs/001-raffle-core/plan.md
+      - specs/001-raffle-core/tasks.md
+      - specs/001-raffle-core/data-model.md
+    policy_files:
+      - specs/001-raffle-core/policies/raffle-policy.md
+    outline_summary:
+      - specs/001-raffle-core/outline.md
+    depends_on: []
+    blocks:
+      - "002"
+      - "003"
+
+  - id: "002"
+    slug: distribution-engine
+    title: Distribution Engine
+    status: draft
+    owner: protocol
+    priority: 2
+    depends_on:
+      - "001"
+    blocks:
+      - "004"
+
+  - id: "003"
+    slug: agent-policy-engine
+    title: Agent Policy Engine
+    status: draft
+    owner: security
+    priority: 3
+    depends_on:
+      - "001"
+    blocks:
+      - "004"
